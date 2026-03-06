@@ -1,0 +1,13 @@
+[db]
+data_source = "postgresql://postgres:UgKaxCGXvFED9uZ2@db.nwaezqekulebucicrzea.supabase.co:6543/postgres"
+prepare_stmt = false
+
+[db.pool]
+enable = false
+
+[jwt]
+allowed_users = ["@AsskiCKerX"]
+secret = "7e166c6939aebab9b6dc566a41592224"
+
+[tg.uploads]
+encryption_key = "Sspo13ClGdPETWLmLBuxwqSoCAyhQ8VC"
