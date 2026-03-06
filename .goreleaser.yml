@@ -45,8 +45,7 @@ archives:
 
 dockers_v2:
   - images:
-      - "ghcr.io/tgdrive/{{ .ProjectName }}"
-      - "docker.io/{{ .ProjectName }}/{{ .ProjectName }}"
+      - "ghcr.io/nishok000123/{{ .ProjectName }}"
     tags:
       - "{{ .Tag }}"
       - "latest"
@@ -86,4 +85,4 @@ changelog:
       - Merge branch
 
 release:
-  draft: true
+  draft: false
