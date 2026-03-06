@@ -14,6 +14,11 @@ locker-instance = 'cron-locker'
 data-source = ''
 log-level = 'info'
 prepare-stmt = true
+# Custom DNS resolvers for the database connection.
+# Set this when the system DNS is unavailable or returns errors (e.g. in some
+# container environments where [::1]:53 is used but not reachable).
+# Example: resolvers = ['8.8.8.8:53', '1.1.1.1:53']
+resolvers = []
 
 [db.pool]
 enable = true

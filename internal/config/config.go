@@ -142,9 +142,10 @@ type DBPool struct {
 	MaxLifetime        time.Duration `default:"10m" description:"Maximum connection lifetime"`
 }
 type DBConfig struct {
-	DataSource  string `validate:"required" default:"" description:"Database connection string"`
-	PrepareStmt bool   `default:"true" description:"Use prepared statements"`
+	DataSource  string   `validate:"required" default:"" description:"Database connection string"`
+	PrepareStmt bool     `default:"true" description:"Use prepared statements"`
 	Pool        DBPool
+	Resolvers   []string `default:"" description:"Custom DNS resolvers for database connection (e.g. 8.8.8.8:53,1.1.1.1:53). Useful when the system DNS is unreachable."`
 }
 
 type CronJobConfig struct {
