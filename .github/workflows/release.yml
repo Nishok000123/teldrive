@@ -59,7 +59,10 @@ jobs:
 
   goreleaser:
     name: Release
-    if: github.event_name == 'push'
+    needs: [create-tag]
+    if: >-
+      always() && !cancelled() &&
+      (github.event_name == 'push' || needs.create-tag.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

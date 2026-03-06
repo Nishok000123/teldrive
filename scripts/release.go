@@ -62,10 +62,22 @@ func getVersion() (*semver.Version, error) {
 	}
 	tags := strings.Split(strings.TrimSpace(string(b)), "\n")
 	if len(tags) == 0 || tags[0] == "" {
-		return nil, errors.New("error: no tags found")
+		return getVersionFromFile()
 	}
 
 	return semver.NewVersion(tags[0])
+}
+
+func getVersionFromFile() (*semver.Version, error) {
+	b, err := os.ReadFile(versionFile)
+	if err != nil {
+		return nil, fmt.Errorf("no git tags found and %s file not readable: %w", versionFile, err)
+	}
+	v := strings.TrimSpace(string(b))
+	if v == "" {
+		return nil, fmt.Errorf("no git tags found and %s file is empty", versionFile)
+	}
+	return semver.NewVersion(v)
 }
 
 func bumpVersion(version *semver.Version, verb string) error {
