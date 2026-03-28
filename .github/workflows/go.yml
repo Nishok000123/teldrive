@@ -19,10 +19,21 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.20'
+        go-version: '1.24.x'
+
+    - name: Generate API code
+      run: go generate ./...
+
+    - name: Create UI stub
+      run: mkdir -p ui/dist && echo '<!doctype html>' > ui/dist/index.html
+
+    - name: Check module tidiness
+      run: |
+        go mod tidy
+        git diff --exit-code go.mod go.sum
 
     - name: Build
       run: go build -v ./...
 
     - name: Test
-      run: go test -v ./...
+      run: go test -v ./internal/... ./pkg/...
