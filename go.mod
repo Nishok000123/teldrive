@@ -1,6 +1,8 @@
 module github.com/tgdrive/teldrive
 
-go 1.20
+go 1.24.0
+
+toolchain go1.24.13
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
@@ -83,7 +85,7 @@ require (
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/go-faster/errors v0.7.1
-	github.com/go-faster/jx v1.2.0 // indirect
+	github.com/go-faster/jx v1.2.0
 	github.com/go-faster/xor v1.0.0 // indirect
 	github.com/gorilla/websocket v1.5.3
 	github.com/gotd/ige v0.2.2 // indirect
