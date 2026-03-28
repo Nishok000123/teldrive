@@ -2693,6 +2693,18 @@
           "selected": {
             "type": "boolean",
             "description": "Whether this channel is the currently selected storage channel"
+          },
+          "fileCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Number of files stored in this channel",
+            "readOnly": true
+          },
+          "totalSize": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Total size of files stored in this channel in bytes",
+            "readOnly": true
           }
         },
         "description": "Telegram channel information",

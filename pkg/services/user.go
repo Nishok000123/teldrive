@@ -49,6 +49,12 @@ func (a *apiService) UsersAddBots(ctx context.Context, req *api.AddBots) error {
 
 }
 
+type channelStat struct {
+	ChannelId int64
+	FileCount int64
+	TotalSize int64
+}
+
 func (a *apiService) UsersListChannels(ctx context.Context) ([]api.Channel, error) {
 
 	userId := auth.GetUser(ctx)
@@ -85,6 +91,30 @@ func (a *apiService) UsersListChannels(ctx context.Context) ([]api.Channel, erro
 					ChannelName: peer.Channel.Title,
 					Selected:    api.NewOptBool(false),
 				}
+			}
+		}
+	}
+
+	// Include channels that have files stored but are not yet in the map
+	// (e.g. channels discovered from file history that are no longer in peer storage),
+	// and populate per-channel file statistics in a single query.
+	var stats []channelStat
+	if err := a.db.WithContext(ctx).Model(&models.File{}).
+		Select("channel_id, count(*) as file_count, COALESCE(SUM(size), 0) as total_size").
+		Where("user_id = ? AND status = 'active' AND type = 'file' AND channel_id IS NOT NULL", userId).
+		Group("channel_id").
+		Scan(&stats).Error; err == nil {
+		for _, stat := range stats {
+			if _, exists := channels[stat.ChannelId]; !exists {
+				channels[stat.ChannelId] = &api.Channel{
+					ChannelId:   api.NewOptInt64(stat.ChannelId),
+					ChannelName: fmt.Sprintf("channel_%d", stat.ChannelId),
+					Selected:    api.NewOptBool(false),
+				}
+			}
+			if ch, exists := channels[stat.ChannelId]; exists {
+				ch.FileCount = api.NewOptInt64(stat.FileCount)
+				ch.TotalSize = api.NewOptInt64(stat.TotalSize)
 			}
 		}
 	}
