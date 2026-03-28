@@ -79,6 +79,9 @@ func (afb *fileQueryBuilder) applyListFilters(query *gorm.DB, filesQuery *api.Fi
 	if filesQuery.ParentId.Value != "" {
 		query = query.Where("parent_id = ?", filesQuery.ParentId.Value)
 	}
+	if filesQuery.ChannelId.Set {
+		query = query.Where("channel_id = ?", filesQuery.ChannelId.Value)
+	}
 	return query
 }
 
@@ -137,6 +140,10 @@ func (afb *fileQueryBuilder) applyFileSpecificFilters(query *gorm.DB, filesQuery
 
 	if filesQuery.Shared.Value {
 		query = query.Where("id in (SELECT file_id FROM teldrive.file_shares where user_id = ?)", userId)
+	}
+
+	if filesQuery.ChannelId.Set {
+		query = query.Where("channel_id = ?", filesQuery.ChannelId.Value)
 	}
 
 	return query

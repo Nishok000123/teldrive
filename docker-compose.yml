@@ -1,0 +1,53 @@
+# All-in-one Docker Compose for Teldrive
+# ----------------------------------------
+# Prerequisites:
+#   1. Copy config.sample.toml → config.toml and fill in jwt.secret,
+#      tg.app-id and tg.app-hash (https://my.telegram.org/apps).
+#      The db.data-source below matches the postgres_db service.
+#   2. docker compose up -d
+#   3. Open http://localhost:8080 and log in with your Telegram account.
+
+services:
+  postgres_db:
+    image: ghcr.io/tgdrive/postgres:17-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: teldrive
+      POSTGRES_PASSWORD: secret        # change this and update config.toml
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - teldrive_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teldrive"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  teldrive:
+    image: ghcr.io/tgdrive/teldrive
+    container_name: teldrive
+    restart: always
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    volumes:
+      - ./config.toml:/config.toml
+    ports:
+      - "8080:8080"
+    networks:
+      - teldrive_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  postgres_data:
+
+networks:
+  teldrive_net:
