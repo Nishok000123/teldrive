@@ -2689,6 +2689,10 @@
             "type": "integer",
             "format": "int64",
             "description": "Unique numeric identifier of the channel"
+          },
+          "selected": {
+            "type": "boolean",
+            "description": "Whether this channel is the currently selected storage channel"
           }
         },
         "description": "Telegram channel information",

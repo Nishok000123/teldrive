@@ -55,6 +55,20 @@ func (a *apiService) UsersListChannels(ctx context.Context) ([]api.Channel, erro
 
 	channels := make(map[int64]*api.Channel)
 
+	// Load channels stored in the database (these have been set up for TelDrive storage).
+	var dbChannels []models.Channel
+	if err := a.db.WithContext(ctx).Where("user_id = ?", userId).Find(&dbChannels).Error; err != nil {
+		return nil, &apiError{err: err}
+	}
+	for _, ch := range dbChannels {
+		channels[ch.ChannelId] = &api.Channel{
+			ChannelId:   api.NewOptInt64(ch.ChannelId),
+			ChannelName: ch.ChannelName,
+			Selected:    api.NewOptBool(ch.Selected),
+		}
+	}
+
+	// Supplement with channels discovered from Telegram peer storage.
 	peerStorage := tgstorage.NewPeerStorage(a.db, cache.KeyPeer(userId))
 
 	iter, err := peerStorage.Iterate(ctx)
@@ -65,17 +79,19 @@ func (a *apiService) UsersListChannels(ctx context.Context) ([]api.Channel, erro
 	for iter.Next(ctx) {
 		peer := iter.Value()
 		if peer.Channel != nil && peer.Channel.AdminRights.AddAdmins {
-			_, exists := channels[peer.Channel.ID]
-			if !exists {
-				channels[peer.Channel.ID] = &api.Channel{ChannelId: api.NewOptInt64(peer.Channel.ID), ChannelName: peer.Channel.Title}
+			if _, exists := channels[peer.Channel.ID]; !exists {
+				channels[peer.Channel.ID] = &api.Channel{
+					ChannelId:   api.NewOptInt64(peer.Channel.ID),
+					ChannelName: peer.Channel.Title,
+					Selected:    api.NewOptBool(false),
+				}
 			}
 		}
-
 	}
-	res := []api.Channel{}
+
+	res := make([]api.Channel, 0, len(channels))
 	for _, channel := range channels {
 		res = append(res, *channel)
-
 	}
 	sort.Slice(res, func(i, j int) bool {
 		return res[i].ChannelName < res[j].ChannelName
