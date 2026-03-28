@@ -1,6 +1,8 @@
 module github.com/tgdrive/teldrive
 
-go 1.20
+go 1.24
+
+toolchain go1.24.13
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
