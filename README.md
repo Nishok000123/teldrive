@@ -19,6 +19,9 @@ Teldrive is a powerful utility that turns your Telegram account into a cloud-sto
   - [5. All-in-one compose file](#5-all-in-one-compose-file)
 - [Configuration Reference](#configuration-reference)
 - [Browsing & Filtering Channel Files](#browsing--filtering-channel-files)
+  - [Listing your channels via the REST API](#listing-your-channels-via-the-rest-api)
+  - [Filtering files by channel](#filtering-files-by-channel)
+  - [Finding your channel ID](#finding-your-channel-id)
 - [Mount with Rclone / WebDAV](#mount-with-rclone--webdav)
   - [Rclone configuration](#rclone-configuration)
   - [Mount a full drive](#mount-a-full-drive)
@@ -240,7 +243,36 @@ Below are the most important settings. See `config.sample.toml` / `config.sample
 
 Teldrive stores every uploaded file with its originating Telegram **channel ID**. You can filter the file listing to a specific channel using the `channelId` query parameter.
 
-### Via the REST API
+### Listing your channels via the REST API
+
+```
+GET /api/users/channels
+```
+
+Returns all channels associated with your account — both channels configured as TelDrive storage targets (from the database) and channels where your Telegram account has admin rights (from peer storage). Each entry includes a `selected` flag that tells you which channel is the **current active storage target**.
+
+**Example response:**
+
+```json
+[
+  { "channelName": "Archive 2024", "channelId": 111, "selected": false },
+  { "channelName": "Main Storage",  "channelId": 222, "selected": true  },
+  { "channelName": "Telegram-only", "channelId": 333, "selected": false }
+]
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `channelId` | `int64` | Unique Telegram channel identifier |
+| `channelName` | `string` | Human-readable channel name |
+| `selected` | `boolean` | `true` if this channel is the currently active TelDrive storage channel |
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  "http://localhost:8080/api/users/channels"
+```
+
+### Filtering files by channel
 
 ```
 GET /api/files?channelId=<channel_id>
@@ -271,9 +303,11 @@ curl -H "Authorization: Bearer <token>" \
 ### Finding your channel ID
 
 1. Open Teldrive's web UI → **Settings → Channels**.
-2. Your channels are listed with their IDs.
+2. Your channels are listed with their IDs. The currently active storage channel is marked as selected.
 
-Alternatively, forward any message from the channel to [@userinfobot](https://t.me/userinfobot) on Telegram.
+Alternatively, call `GET /api/users/channels` (see above) — the entry with `"selected": true` is your current storage channel.
+
+You can also forward any message from the channel to [@userinfobot](https://t.me/userinfobot) on Telegram.
 
 ---
 
