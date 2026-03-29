@@ -12,6 +12,9 @@ import (
 )
 
 var (
+	// versionFile is the plain-text file that stores the current release
+	// version (e.g. "1.8.3"). It is the authoritative fallback when git tags
+	// are not available (shallow clones, Docker builds).
 	versionFile = "VERSION"
 	versionFlag bool
 )
@@ -57,15 +60,24 @@ func release() error {
 func getVersion() (*semver.Version, error) {
 	cmd := exec.Command("git", "tag", "-l", "[0-9]*.[0-9]*.[0-9]*", "--sort=-v:refname")
 	b, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-	tags := strings.Split(strings.TrimSpace(string(b)), "\n")
-	if len(tags) == 0 || tags[0] == "" {
-		return nil, errors.New("error: no tags found")
+	if err == nil {
+		tags := strings.Split(strings.TrimSpace(string(b)), "\n")
+		if len(tags) > 0 && tags[0] != "" {
+			return semver.NewVersion(tags[0])
+		}
 	}
 
-	return semver.NewVersion(tags[0])
+	// Fall back to VERSION file when git tags are unavailable
+	// (e.g. shallow clones, Docker builds without full git history).
+	data, err := os.ReadFile(versionFile)
+	if err != nil {
+		return nil, fmt.Errorf("no git tags found and cannot read %s: %w", versionFile, err)
+	}
+	v := strings.TrimSpace(string(data))
+	if v == "" {
+		return nil, fmt.Errorf("no git tags found and %s is empty", versionFile)
+	}
+	return semver.NewVersion(v)
 }
 
 func bumpVersion(version *semver.Version, verb string) error {

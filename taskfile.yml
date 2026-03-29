@@ -46,6 +46,11 @@ tasks:
   server:
     desc: Build Server
     deps: [gen]
+    cmds:
+      - task: build
+
+  build:
+    desc: Compile binary only (internal/api must already be generated)
     vars:
       VERSION:
         sh: go run scripts/release.go --version current
