@@ -1,7 +1,8 @@
 name: Build Teldrive Custom
+
 on:
   push:
-    branches: [ main ] # Runs every time you push code
+    branches: [ main ] # This triggers the build every time you push code to GitHub
 
 jobs:
   build-and-push:
@@ -26,4 +27,8 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          # IMPORTANT: Your username 'Nishok000123' must be lowercase here
+          tags: ghcr.io/nishok000123/teldrive:latest
+          # This uses GitHub's cache to make future builds even faster
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
