@@ -15,17 +15,17 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the full source tree
+# internal/api is pre-generated and committed; no ogen invocation needed.
 COPY . .
 
 # Download pre-built frontend assets from GitHub Releases
 RUN task ui
 
-# Generate internal/api and compile the static binary.
-# task server already declares deps: [gen], so code generation and
-# compilation happen in a single step – avoiding a second, redundant
-# ogen invocation that would double peak memory and risk an OOM-induced
+# Compile the static binary.
+# internal/api is committed to the repository so ogen does not need to run
+# here, avoiding the memory spike that previously caused an OOM-induced
 # BuildKit EOF ("failed to receive status: rpc error … EOF").
-RUN CGO_ENABLED=0 task server
+RUN CGO_ENABLED=0 task build
 
 # ─── Stage 2: Minimal runtime image ──────────────────────────────────────────
 FROM alpine:3.20
