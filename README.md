@@ -63,7 +63,7 @@ Teldrive is a powerful utility that turns your Telegram account into a cloud-sto
 
 ## Deploy with Docker (recommended)
 
-The Docker image is published at **`ghcr.io/tgdrive/teldrive`** and the custom Postgres image (with required extensions) at **`ghcr.io/tgdrive/postgres:17-alpine`**.
+The Docker image is published at **`ghcr.io/nishok000123/teldrive`** and the custom Postgres image (with required extensions) at **`ghcr.io/tgdrive/postgres:17-alpine`**.
 
 ### 1. Create the Docker network
 
@@ -137,7 +137,7 @@ app-hash = "8da85b0d5bfe62527e5b244c209159c3" # replace with your app_hash
 # docker/compose/teldrive.yml
 services:
   teldrive:
-    image: ghcr.io/tgdrive/teldrive
+    image: ghcr.io/nishok000123/teldrive
     restart: always
     container_name: teldrive
     networks:
@@ -160,7 +160,7 @@ Open `http://localhost:8080` in your browser, log in with your Telegram account,
 
 ### 5. All-in-one compose file
 
-If you prefer a single file, create `docker-compose.yml` in the project root:
+The repository ships a ready-to-use `docker-compose.yml` in the project root. It includes a `build: .` directive so you can always build from your **local source code** instead of pulling a pre-built image.
 
 ```yaml
 services:
@@ -178,7 +178,8 @@ services:
       - teldrive_net
 
   teldrive:
-    image: ghcr.io/tgdrive/teldrive
+    build: .                           # build from local source (Dockerfile)
+    image: ghcr.io/nishok000123/teldrive
     container_name: teldrive
     restart: always
     depends_on:
@@ -204,7 +205,17 @@ With this file the `config.toml` database host is `postgres_db`:
 data-source = "postgres://teldrive:secret@postgres_db/postgres?sslmode=disable"
 ```
 
-Start everything with:
+**Deploy the latest local changes:**
+
+```bash
+# Pull latest code
+git pull
+
+# Build the image from source and start all services
+docker compose up -d --build
+```
+
+To just pull the published image without rebuilding from source:
 
 ```bash
 docker compose up -d
