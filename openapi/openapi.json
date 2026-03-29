@@ -1955,6 +1955,65 @@
         ]
       }
     },
+    "/users/channels/{id}/import": {
+      "post": {
+        "operationId": "Users_importChannel",
+        "summary": "Import files from a Telegram channel into TelDrive",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Users"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChannelImport"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
     "/users/channels/{id}": {
       "delete": {
         "operationId": "Users_deleteChannel",
@@ -2674,6 +2733,34 @@
           "totalSize": 104857600,
           "category": "document"
         }
+      },
+      "ChannelImport": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Destination path in TelDrive where imported files will be placed"
+          }
+        },
+        "description": "Request body for importing files from a Telegram channel"
+      },
+      "ImportResult": {
+        "type": "object",
+        "required": [
+          "imported",
+          "total"
+        ],
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "description": "Number of files newly imported"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of file messages scanned in the channel"
+          }
+        },
+        "description": "Result of a channel import operation"
       },
       "Channel": {
         "type": "object",

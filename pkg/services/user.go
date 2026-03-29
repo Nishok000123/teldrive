@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gotd/td/telegram/query"
 	"github.com/gotd/td/tg"
@@ -15,12 +16,22 @@ import (
 	"github.com/tgdrive/teldrive/internal/api"
 	"github.com/tgdrive/teldrive/internal/auth"
 	"github.com/tgdrive/teldrive/internal/cache"
+	"github.com/tgdrive/teldrive/internal/category"
 	"github.com/tgdrive/teldrive/internal/tgc"
 	"github.com/tgdrive/teldrive/internal/tgstorage"
+	"github.com/tgdrive/teldrive/internal/utils"
 	"github.com/tgdrive/teldrive/pkg/models"
+	"gorm.io/datatypes"
 
 	"github.com/gotd/contrib/storage"
 	"gorm.io/gorm/clause"
+)
+
+const (
+	importDefaultPath     = "/root"
+	importHistoryBatch    = 100
+	importFallbackMime    = "application/octet-stream"
+	importFallbackNameFmt = "file_%d"
 )
 
 func (a *apiService) UsersAddBots(ctx context.Context, req *api.AddBots) error {
@@ -337,4 +348,153 @@ func (a *apiService) UsersUpdateChannel(ctx context.Context, req *api.ChannelUpd
 
 	a.cache.Set(ctx, cache.KeyUserChannel(userId), channel.ChannelId, 0)
 	return nil
+}
+
+func (a *apiService) UsersImportChannel(ctx context.Context, req *api.ChannelImport, params api.UsersImportChannelParams) (*api.ImportResult, error) {
+	userId := auth.GetUser(ctx)
+
+	channelId, err := strconv.ParseInt(params.ID, 10, 64)
+	if err != nil {
+		return nil, &apiError{err: errors.New("invalid channel id"), code: 400}
+	}
+
+	// Collect message IDs already tracked in TelDrive for this channel so we
+	// can skip them during the import walk.
+	type partIDRow struct {
+		PartID int `gorm:"column:part_id"`
+	}
+	var existingRows []partIDRow
+	if err := a.db.WithContext(ctx).Raw(`
+		SELECT (part->>'id')::int AS part_id
+		FROM teldrive.files, jsonb_array_elements(parts) AS part
+		WHERE channel_id = ? AND user_id = ? AND type = 'file' AND status = 'active'
+	`, channelId, userId).Scan(&existingRows).Error; err != nil {
+		return nil, &apiError{err: err}
+	}
+	existingPartIDs := make(map[int]struct{}, len(existingRows))
+	for _, r := range existingRows {
+		existingPartIDs[r.PartID] = struct{}{}
+	}
+
+	// Resolve the destination directory, creating it if necessary.
+	destPath := strings.TrimSpace(req.GetPath().Or(importDefaultPath))
+	if destPath == "" {
+		destPath = importDefaultPath
+	}
+	var destRes []models.File
+	if err := a.db.WithContext(ctx).Raw("SELECT * FROM teldrive.create_directories(?, ?)", userId, destPath).
+		Scan(&destRes).Error; err != nil {
+		return nil, &apiError{err: err}
+	}
+	var parentId *string
+	if len(destRes) > 0 {
+		parentId = &destRes[0].ID
+	}
+
+	// Open a Telegram client for the authenticated user.
+	client, err := tgc.AuthClient(ctx, &a.cnf.TG, auth.GetJWTUser(ctx).TgSession, a.newMiddlewares(ctx, 5)...)
+	if err != nil {
+		return nil, &apiError{err: err}
+	}
+
+	imported := 0
+	total := 0
+
+	err = tgc.RunWithAuth(ctx, client, "", func(ctx context.Context) error {
+		channel, err := tgc.GetChannelFull(ctx, client.API(), channelId)
+		if err != nil {
+			return err
+		}
+		inputPeer := channel.AsInputPeer()
+
+		iter := query.NewQuery(client.API()).Messages().GetHistory(inputPeer).BatchSize(importHistoryBatch).Iter()
+		for iter.Next(ctx) {
+			elem := iter.Value()
+			msg, ok := elem.Msg.(*tg.Message)
+			if !ok {
+				continue
+			}
+			media, ok := msg.Media.(*tg.MessageMediaDocument)
+			if !ok {
+				continue
+			}
+			document, ok := media.Document.(*tg.Document)
+			if !ok {
+				continue
+			}
+			total++
+
+			// Skip messages already tracked in TelDrive.
+			if _, exists := existingPartIDs[msg.ID]; exists {
+				continue
+			}
+
+			// Extract filename from document attributes.
+			fileName := fmt.Sprintf(importFallbackNameFmt, msg.ID)
+			for _, attr := range document.Attributes {
+				if fnAttr, ok := attr.(*tg.DocumentAttributeFilename); ok {
+					fileName = fnAttr.FileName
+					break
+				}
+			}
+
+			mimeType := document.MimeType
+			if mimeType == "" {
+				mimeType = importFallbackMime
+			}
+			cat := string(category.GetCategory(fileName))
+			size := document.Size
+			parts := datatypes.NewJSONSlice([]api.Part{{ID: msg.ID}})
+			now := time.Now().UTC()
+
+			dbFile := models.File{
+				Name:      fileName,
+				Type:      "file",
+				MimeType:  mimeType,
+				Size:      &size,
+				Category:  &cat,
+				UserId:    userId,
+				Status:    "active",
+				ParentId:  parentId,
+				ChannelId: &channelId,
+				Encrypted: utils.Ptr(false),
+				Parts:     utils.Ptr(parts),
+				UpdatedAt: &now,
+			}
+
+			// Use the same raw-SQL upsert as FilesCreate to honour the partial
+			// unique index on (name, parent_id, user_id) WHERE status='active'.
+			var inserted models.File
+			if err := a.db.WithContext(ctx).Raw(`
+				INSERT INTO teldrive.files (
+					name, parent_id, user_id, mime_type, category, parts,
+					size, type, encrypted, updated_at, channel_id, status
+				)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				ON CONFLICT (name, COALESCE(parent_id, '00000000-0000-0000-0000-000000000000'::uuid), user_id)
+				WHERE status = 'active'
+				DO NOTHING
+				RETURNING *
+			`,
+				dbFile.Name, dbFile.ParentId, dbFile.UserId, dbFile.MimeType,
+				dbFile.Category, dbFile.Parts, dbFile.Size, dbFile.Type,
+				dbFile.Encrypted, dbFile.UpdatedAt, dbFile.ChannelId, dbFile.Status,
+			).Scan(&inserted).Error; err != nil {
+				return err
+			}
+			if inserted.ID != "" {
+				imported++
+				// Track newly imported part ID so a duplicate message later in
+				// the same scan is also skipped.
+				existingPartIDs[msg.ID] = struct{}{}
+			}
+		}
+		return iter.Err()
+	})
+
+	if err != nil {
+		return nil, &apiError{err: err}
+	}
+
+	return &api.ImportResult{Imported: imported, Total: total}, nil
 }
