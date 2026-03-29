@@ -5,8 +5,6 @@ vars:
   BUILD_DIR: bin
   FRONTEND_DIR: ui/dist
   FRONTEND_ASSET: https://github.com/tgdrive/teldrive-ui/releases/download/latest/teldrive-ui.zip
-  GIT_COMMIT:
-    sh: git rev-parse --short HEAD
   MODULE_PATH:
     sh: go list -m
   GOOS:
@@ -47,6 +45,8 @@ tasks:
     desc: Build Server
     deps: [gen]
     vars:
+      GIT_COMMIT:
+        sh: git rev-parse --short HEAD 2>/dev/null || echo "unknown"
       VERSION:
         sh: go run scripts/release.go --version current
     cmds:
