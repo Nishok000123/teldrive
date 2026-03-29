@@ -20,10 +20,11 @@ COPY . .
 # Download pre-built frontend assets from GitHub Releases
 RUN task ui
 
-# Generate internal/api from openapi/openapi.json
-RUN task gen
-
-# Compile the static binary
+# Generate internal/api and compile the static binary.
+# task server already declares deps: [gen], so code generation and
+# compilation happen in a single step – avoiding a second, redundant
+# ogen invocation that would double peak memory and risk an OOM-induced
+# BuildKit EOF ("failed to receive status: rpc error … EOF").
 RUN CGO_ENABLED=0 task server
 
 # ─── Stage 2: Minimal runtime image ──────────────────────────────────────────
